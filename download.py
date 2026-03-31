@@ -7,7 +7,8 @@ import os
 SAVE_DIR = "D:\work\Intern\Dataset"   # 保存路径
 URL_LIST = [
     # 视频链接
-    "https://www.youtube.com/watch?v=eB-83C1JU_w",
+    # "https://www.youtube.com/watch?v=eB-83C1JU_w",
+    "https://www.bilibili.com/video/BV1BG411H7u3/?spm_id_from=333.337.search-card.all.click&vd_source=6831586d1359dd046ad4a77bbe3d31b2"
 ]
 
 # 是否从文件读取（批量）
