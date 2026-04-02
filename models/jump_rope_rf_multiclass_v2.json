@@ -31,12 +31,12 @@
     "left_ankle_conf_mean",
     "right_ankle_conf_mean"
   ],
-  "num_samples": 736,
+  "num_samples": 1534,
   "class_counts": {
     "0": 315,
     "1": 364,
-    "2": 27,
-    "3": 30
+    "2": 465,
+    "3": 390
   },
   "labels": {
     "0": "not_jump",
