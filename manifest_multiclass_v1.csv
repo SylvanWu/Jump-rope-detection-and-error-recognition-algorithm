@@ -1,0 +1,5 @@
+video_path,label,label_name
+D:\work\Intern\Dataset\womanJump.mp4,0,not_jump
+D:\work\Intern\Dataset\man.mp4,1,single_under
+D:\work\Intern\Dataset\ManDoubleUnderJumpRope.mp4,2,double_under
+D:\work\Intern\Dataset\ManCrossJumpRope.mp4,3,cross_jump

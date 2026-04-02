@@ -18,13 +18,18 @@ PROGRESS_EVERY_FRAMES = 60
 
 def load_manifest(manifest_path):
     samples = []
+    label_names = {}
     with open(manifest_path, "r", encoding="utf-8-sig", newline="") as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
             video_path = row["video_path"].strip()
             label = int(row["label"])
-            samples.append({"video_path": video_path, "label": label})
-    return samples
+            label_name = row.get("label_name", "").strip()
+            if not label_name:
+                label_name = f"class_{label}"
+            label_names[label] = label_name
+            samples.append({"video_path": video_path, "label": label, "label_name": label_name})
+    return samples, label_names
 
 
 def extract_pose_sequence(model, video_path, device):
@@ -116,7 +121,7 @@ def build_samples_from_video(model, video_path, label, window_size, stride, devi
 
 
 def train_classifier(manifest_path, model_path, output_path, window_size, stride, device):
-    manifest = load_manifest(manifest_path)
+    manifest, label_name_map = load_manifest(manifest_path)
     pose_model = YOLO(model_path)
 
     features = []
@@ -125,7 +130,10 @@ def train_classifier(manifest_path, model_path, output_path, window_size, stride
     for item in manifest:
         video_path = item["video_path"]
         label = item["label"]
-        print(f"Processing: {video_path} label={label}", flush=True)
+        print(
+            f"Processing: {video_path} label={label} ({item['label_name']})",
+            flush=True,
+        )
         video_samples = build_samples_from_video(
             pose_model,
             video_path,
@@ -144,9 +152,13 @@ def train_classifier(manifest_path, model_path, output_path, window_size, stride
 
     x = np.asarray(features, dtype=np.float32)
     y = np.asarray(labels, dtype=np.int32)
+    unique_labels = sorted(np.unique(y).tolist())
+    class_counts = {
+        str(label): int(np.sum(y == label))
+        for label in unique_labels
+    }
     print(
-        f"Collected samples: total={len(x)}, positive={int(np.sum(y == 1))}, "
-        f"negative={int(np.sum(y == 0))}",
+        f"Collected samples: total={len(x)}, class_counts={class_counts}",
         flush=True,
     )
 
@@ -167,7 +179,16 @@ def train_classifier(manifest_path, model_path, output_path, window_size, stride
     classifier.fit(x_train, y_train)
 
     predictions = classifier.predict(x_test)
-    print(classification_report(y_test, predictions, digits=4))
+    target_names = [label_name_map.get(label, f"class_{label}") for label in unique_labels]
+    print(
+        classification_report(
+            y_test,
+            predictions,
+            labels=unique_labels,
+            target_names=target_names,
+            digits=4,
+        )
+    )
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -179,7 +200,7 @@ def train_classifier(manifest_path, model_path, output_path, window_size, stride
                 "feature_names": FEATURE_NAMES,
                 "window_size": window_size,
                 "stride": stride,
-                "labels": {0: "not_jump_rope", 1: "jump_rope"},
+                "labels": label_name_map,
             },
             model_file,
         )
@@ -193,8 +214,8 @@ def train_classifier(manifest_path, model_path, output_path, window_size, stride
         "stride": stride,
         "feature_names": FEATURE_NAMES,
         "num_samples": int(len(x)),
-        "num_positive": int(np.sum(y == 1)),
-        "num_negative": int(np.sum(y == 0)),
+        "class_counts": class_counts,
+        "labels": label_name_map,
     }
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Saved classifier to: {output_path}")
@@ -202,8 +223,8 @@ def train_classifier(manifest_path, model_path, output_path, window_size, stride
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train a jump-rope / non-jump-rope classifier from YOLO pose keypoints.")
-    parser.add_argument("--manifest", required=True, help="CSV file with columns: video_path,label")
+    parser = argparse.ArgumentParser(description="Train a jump-rope action classifier from YOLO pose keypoints.")
+    parser.add_argument("--manifest", required=True, help="CSV file with columns: video_path,label,label_name(optional)")
     parser.add_argument("--pose-model", default="yolov8n-pose.pt", help="Ultralytics pose model path")
     parser.add_argument("--output", default="models/jump_rope_rf.pkl", help="Where to save the trained classifier")
     parser.add_argument("--window-size", type=int, default=30, help="Number of frames per sample window")
